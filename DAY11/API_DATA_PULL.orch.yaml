@@ -1,0 +1,55 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "ArtInstitute"
+      parameters:
+        componentName: "Start"
+    ArtInstitute:
+      type: "modular-api-extract-input-v2"
+      parameters:
+        componentName: "ArtInstitute"
+        componentId: "custom_v2-a60a482c-4173-4f3b-b001-f225823d2475"
+        inputId: "api-extract-input-v2"
+        api-extract-input-v2:
+          profile: "custom-a60a482c-4173-4f3b-b001-f225823d2475"
+          endpoint: "UNIVERSITIES"
+          connectionRef:
+            overrides:
+              authType: "NONE"
+          uriParams:
+          queryParams:
+          headerParams:
+          postBody:
+          pageLimit:
+          logLevel: "ERROR"
+          loadSelectedData: "No"
+        outputId: "snowflake-output-connector-v0"
+        snowflake-output-connector-v0:
+          warehouse: "[Environment Default]"
+          database: "[Environment Default]"
+          schema: "[Environment Default]"
+          tableName: "API_DATA"
+          createTableMode: "FAIL_IF_EXISTS"
+          cleanStagedFiles: "Yes"
+          stagePlatform: "SNOWFLAKE"
+          snowflake#internalStageType: "USER"
+      postProcessing:
+        updateOutputMessage:
+        updateScalarVariables:
+design:
+  components:
+    Start:
+      position:
+        x: -370
+        "y": -130
+      tempMetlId: 1
+    ArtInstitute:
+      position:
+        x: -160
+        "y": -120
+      tempMetlId: 2

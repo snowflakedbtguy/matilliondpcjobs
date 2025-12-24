@@ -1,0 +1,148 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Get Pipeline Execution Id:
+      type: "table-input"
+      parameters:
+        componentName: "Get Pipeline Execution Id"
+        database: "${prv_metaDB}"
+        schema: "${prv_metaSchema}"
+        targetTable: "${piv_execidtablename}"
+        columnNames:
+        - "pipelineExecutionId"
+        timeOffset:
+    Set Values For Metadata Fields:
+      type: "calculator"
+      sources:
+      - "Get Pipeline Execution Id"
+      parameters:
+        componentName: "Set Values For Metadata Fields"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "'RUNNING'"
+          - "status"
+        - - "'${piv_projectId}'"
+          - "projectId"
+        - - "'${piv_pipelineName}'"
+          - "pipelineName"
+        - - "'${piv_environmentName}'"
+          - "environmentName"
+    Append to Log table:
+      type: "table-output"
+      sources:
+      - "Set Values For Metadata Fields"
+      parameters:
+        componentName: "Append to Log table"
+        warehouse: "[Environment Default]"
+        database: "${prv_metaDB}"
+        schema: "${prv_metaSchema}"
+        targetTable: "PIPELINE_EXECUTION_LOG"
+        fixDataTypeMismatches: "No"
+        columnMapping:
+        - - "pipelineExecutionId"
+          - "pipelineExecutionId"
+        - - "projectId"
+          - "projectId"
+        - - "pipelineName"
+          - "pipelineName"
+        - - "environmentName"
+          - "environmentName"
+        - - "status"
+          - "status"
+        orderBy:
+        outputMode: "Append"
+  variables:
+    prv_metaSchema:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata schema"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prv_metaDB:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata database"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_projectId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_execidtablename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_pipelineName:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_environmentName:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Get Pipeline Execution Id:
+      position:
+        x: -490
+        "y": 20
+      tempMetlId: 1
+    Set Values For Metadata Fields:
+      position:
+        x: -220
+        "y": 20
+      tempMetlId: 2
+    Append to Log table:
+      position:
+        x: 60
+        "y": 20
+      tempMetlId: 3
+  notes:
+    "1":
+      position:
+        x: -600
+        "y": -200
+      size:
+        height: 200
+        width: 230
+      theme: "white"
+      content: |-
+        #### Get Pipeline Execution Id
+        Retrieves the pipeline execution id from a metadata table to populate downstream metadata fields.
+    "2":
+      position:
+        x: -340
+        "y": -220
+      size:
+        height: 220
+        width: 270
+      theme: "white"
+      content: |-
+        #### Set Values For Metadata Fields
+        Calculator component that sets default values for metadata fields like projectId, pipelineName, environmentName and status using input from Get Pipeline Execution Id.
+    "3":
+      position:
+        x: -40
+        "y": -170
+      size:
+        height: 170
+        width: 260
+      theme: "white"
+      content: |-
+        #### Append to Log table
+        Appends the output of the previous transformation to the PIPELINE_EXECUTION_LOG table in the target database.

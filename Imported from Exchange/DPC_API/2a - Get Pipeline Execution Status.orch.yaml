@@ -1,0 +1,218 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Print Variables"
+      skipped: false
+      parameters:
+        componentName: "Start"
+    Run 2b - Upsert Pipeline Execution Status to Log Table:
+      type: "run-transformation"
+      transitions:
+        unconditional:
+        - "Drop Stage Table"
+      skipped: false
+      parameters:
+        componentName: "Run 2b - Upsert Pipeline Execution Status to Log Table"
+        transformationJob: "DPC_API/2b - Upsert Pipeline Execution Status to Log Table"
+        setScalarVariables:
+        - - "piv_execidtablename"
+          - "${piv_execidtablename}"
+        - - "piv_pipelineExecutionId"
+          - "${piv_pipelineExecutionId}"
+        - - "prv_metaDB"
+          - "${prv_metaDB}"
+        - - "prv_metaSchema"
+          - "${prv_metaSchema}"
+        setGridVariables:
+    Drop Stage Table:
+      type: "sql-script"
+      skipped: false
+      parameters:
+        componentName: "Drop Stage Table"
+        sqlScript: "DROP TABLE \"${prv_metaDB}\".\"${prv_metaSchema}\".\"${piv_execidtablename}\""
+    DPC API - Get Pipeline Status 2 2:
+      type: "modular-api-extract-input-v2"
+      transitions:
+        unconditional:
+        - "Run 2b - Upsert Pipeline Execution Status to Log Table"
+      parameters:
+        componentName: "DPC API - Get Pipeline Status 2 2"
+        componentId: "flex_v2-data-productivity-cloud"
+        inputId: "api-extract-input-v2"
+        api-extract-input-v2:
+          profile: "flex-data-productivity-cloud"
+          endpoint: "Get Pipeline Status"
+          connectionRef:
+            overrides:
+              authType: "OAUTH_CLIENT_CRED"
+              oAuthReferenceId: "${piv_credentials_name}"
+          uriParams:
+          - name: "server"
+            value: "${piv_server}"
+          - name: "projectId"
+            value: "${piv_projectId}"
+          - name: "api_version"
+            value: "${piv_api_version}"
+          - name: "pipelineExecutionId"
+            value: "${piv_pipelineExecutionId}"
+          queryParams:
+          headerParams:
+          postBody: ""
+          pageLimit:
+          logLevel: "ERROR"
+        outputId: "snowflake-output-connector-v0"
+        snowflake-output-connector-v0:
+          warehouse: "[Environment Default]"
+          database: "${prv_metaDB}"
+          schema: "${prv_metaSchema}"
+          tableName: "${piv_execidtablename}"
+          createTableMode: "REPLACE_IF_EXISTS"
+          cleanStagedFiles: "Yes"
+          stagePlatform: "SNOWFLAKE"
+          stringNullIsNull: "Yes"
+          snowflake#internalStageType: "USER"
+      postProcessing:
+        updateScalarVariables:
+    Print Variables:
+      type: "print-variables"
+      transitions:
+        success:
+        - "DPC API - Get Pipeline Status 2 2"
+      parameters:
+        componentName: "Print Variables"
+        variablesToPrint:
+        - - "piv_credentials_name"
+        - - "piv_server"
+        - - "piv_projectId"
+        - - "piv_api_version"
+        - - "piv_pipelineExecutionId"
+        - - "prv_metaDB"
+        - - "prv_metaSchema"
+        - - "piv_execidtablename"
+        prefixText:
+        includeVariableName: "Yes"
+      postProcessing:
+        updateScalarVariables:
+  variables:
+    prv_metaSchema:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata schema"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prv_metaDB:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata database"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_api_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "v1"
+    piv_projectId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_credentials_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_execidtablename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_server:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_pipelineExecutionId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -270
+        "y": 0
+      tempMetlId: 1
+    Run 2b - Upsert Pipeline Execution Status to Log Table:
+      position:
+        x: 360
+        "y": 0
+      tempMetlId: 5
+    Drop Stage Table:
+      position:
+        x: 580
+        "y": 0
+      tempMetlId: 6
+    DPC API - Get Pipeline Status 2 2:
+      position:
+        x: 120
+        "y": 0
+      tempMetlId: 9
+    Print Variables:
+      position:
+        x: -80
+        "y": 0
+      tempMetlId: 10
+  notes:
+    "1":
+      position:
+        x: -120
+        "y": -260
+      size:
+        height: 240
+        width: 260
+      theme: "white"
+      content: |-
+        #### DPC API - Get Pipeline Execution Status
+        This component extracts data from a custom API endpoint to retrieve the status of a pipeline execution, and writes the result to a Snowflake staging table.
+    "2":
+      position:
+        x: 160
+        "y": -240
+      size:
+        height: 220
+        width: 290
+      theme: "white"
+      content: |-
+        #### Run 2b - Upsert Pipeline Execution Status to Log Table
+        Runs a transformation job that upserts the pipeline execution status retrieved from the API call into the PIPELINE_EXECUTION_LOG table.
+    "3":
+      position:
+        x: 480
+        "y": -210
+      size:
+        height: 190
+        width: 240
+      theme: "white"
+      content: |-
+        #### Drop Stage Table
+        SQL script component that drops the stage table created in the previous component using the stage table name referenced by the variable.

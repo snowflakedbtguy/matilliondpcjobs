@@ -1,0 +1,145 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Table Iterator"
+      skipped: false
+      parameters:
+        componentName: "Start"
+    Table Iterator:
+      type: "table-iterator"
+      iterationTarget: "Run 2a - Get Pipeline Execution Status"
+      skipped: false
+      parameters:
+        componentName: "Table Iterator"
+        mode: "Advanced"
+        query: "select \"pipelineExecutionId\"\r\n    ,\"projectId\"\r\n    ,'stg_'\
+          \ || REPLACE(\"pipelineExecutionId\",'-') || TO_VARCHAR(sysdate(),'_YYYYMMDDHH24MISSFF3')\
+          \ as tableName\r\nFROM \"${prv_metaDB}\".\"${prv_metaSchema}\".\"PIPELINE_EXECUTION_LOG\"\
+          \r\nWHERE \"status\" = 'RUNNING'"
+        concurrency: "Sequential"
+        columnMapping1:
+        - - "TABLENAME"
+          - "piv_execidtablename"
+        - - "pipelineExecutionId"
+          - "piv_pipelineExecutionId"
+        - - "projectId"
+          - "piv_projectId"
+        breakOnFailure: "No"
+    Run 2a - Get Pipeline Execution Status:
+      type: "run-orchestration"
+      skipped: false
+      parameters:
+        componentName: "Run 2a - Get Pipeline Execution Status"
+        orchestrationJob: "DPC_API/2a - Get Pipeline Execution Status"
+        setScalarVariables:
+        - - "piv_projectId"
+          - "${piv_projectId}"
+        - - "piv_execidtablename"
+          - "${piv_execidtablename}"
+        - - "piv_pipelineExecutionId"
+          - "${piv_pipelineExecutionId}"
+        - - "piv_credentials_name"
+          - "${piv_credentials_name}"
+        - - "piv_server"
+          - "${piv_server}"
+        - - "piv_api_version"
+          - "${piv_api_version}"
+        - - "prv_metaDB"
+          - "${prv_metaDB}"
+        - - "prv_metaSchema"
+          - "${prv_metaSchema}"
+        setGridVariables:
+  variables:
+    prv_metaSchema:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata schema"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prv_metaDB:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata database"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_projectId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_api_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "v1"
+    piv_credentials_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_execidtablename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_server:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_pipelineExecutionId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -320
+        "y": 0
+      tempMetlId: 1
+    Table Iterator:
+      position:
+        x: -40
+        "y": -10
+      tempMetlId: 2
+    Run 2a - Get Pipeline Execution Status:
+      position:
+        x: -40
+        "y": -10
+      tempMetlId: 3
+  notes:
+    "2":
+      position:
+        x: 60
+        "y": -180
+      size:
+        height: 400
+        width: 300
+      theme: "white"
+      content: "#### Table Iterator\nSelects rows from the PIPELINE_EXECUTION_LOG\
+        \ table with status of RUNNING to extract column values and pass them as variables\
+        \ to the next component.\n\nThis step also generates the stage table names\
+        \ to store Pipeline Execution Status for each pipelineExecutionId.\n\n####\
+        \ Run 2a - Get Pipeline Execution Status \nRuns an orchestration job to retrieve\
+        \ pipeline execution status, passing the extracted variable values."

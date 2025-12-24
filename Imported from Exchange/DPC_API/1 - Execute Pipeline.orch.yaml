@@ -1,0 +1,345 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Create PIPELINE_EXECUTION_LOG"
+      skipped: false
+      parameters:
+        componentName: "Start"
+    Generate Stage Table Name:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Print Variables"
+      skipped: false
+      parameters:
+        componentName: "Generate Stage Table Name"
+        mode: "Advanced"
+        query: "select 'stg_' || REPLACE('${piv_projectId}','-') || TO_VARCHAR(sysdate(),'_YYYYMMDDHH24MISSFF3')\
+          \ as tableName"
+        scalarVariableMapping:
+        - - "piv_execidtablename"
+          - "TABLENAME"
+    Print Variables:
+      type: "print-variables"
+      transitions:
+        success:
+        - "DPC API - Execute Published Pipeline"
+      skipped: false
+      parameters:
+        componentName: "Print Variables"
+        variablesToPrint:
+        - - "piv_execidtablename"
+        - - "prv_metaDB"
+        - - "prv_metaSchema"
+        - - "piv_pipelineName"
+        - - "piv_projectId"
+        - - "piv_environmentName"
+        - - "piv_execidtablename"
+        prefixText:
+        includeVariableName: "No"
+    Run 1a - Append Pipeline Execution Id to Log Table:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Drop Stage Table"
+      skipped: false
+      parameters:
+        componentName: "Run 1a - Append Pipeline Execution Id to Log Table"
+        transformationJob: "DPC_API/1a - Append Pipeline Execution Id to Log Table"
+        setScalarVariables:
+        - - "piv_projectId"
+          - "${piv_projectId}"
+        - - "piv_execidtablename"
+          - "${piv_execidtablename}"
+        - - "piv_pipelineName"
+          - "${piv_pipelineName}"
+        - - "piv_environmentName"
+          - "${piv_environmentName}"
+        - - "prv_metaDB"
+          - "${prv_metaDB}"
+        - - "prv_metaSchema"
+          - "${prv_metaSchema}"
+        setGridVariables:
+    Drop Stage Table:
+      type: "sql-script"
+      skipped: false
+      parameters:
+        componentName: "Drop Stage Table"
+        sqlScript: "DROP TABLE \"${prv_metaDB}\".\"${prv_metaSchema}\".\"${piv_execidtablename}\""
+    Create PIPELINE_EXECUTION_LOG:
+      type: "create-table"
+      transitions:
+        success:
+        - "Generate Stage Table Name"
+      parameters:
+        componentName: "Create PIPELINE_EXECUTION_LOG"
+        createReplace: "Create if not exists"
+        database: "${prv_metaDB}"
+        schema: "${prv_metaSchema}"
+        newTableName: "PIPELINE_EXECUTION_LOG"
+        tableType: "Permanent"
+        columns:
+        - - "pipelineExecutionId"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "projectId"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "pipelineName"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "environmentName"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "startedAt"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "status"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "finshedAt"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "message"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+      postProcessing:
+        updateScalarVariables:
+    DPC API - Execute Published Pipeline:
+      type: "modular-api-extract-input-v2"
+      transitions:
+        success:
+        - "Run 1a - Append Pipeline Execution Id to Log Table"
+      parameters:
+        componentName: "DPC API - Execute Published Pipeline"
+        componentId: "flex_v2-data-productivity-cloud"
+        inputId: "api-extract-input-v2"
+        api-extract-input-v2:
+          profile: "flex-data-productivity-cloud"
+          endpoint: "Execute Published Pipeline"
+          connectionRef:
+            overrides:
+              authType: "OAUTH_CLIENT_CRED"
+              oAuthReferenceId: "${piv_credentials_name}"
+          uriParams:
+          - name: "server"
+            value: "${piv_server}"
+          - name: "projectId"
+            value: "${piv_projectId}"
+          - name: "api_version"
+            value: "${piv_api_version}"
+          queryParams:
+          headerParams:
+          postBody: "{\r\n  \"pipelineName\": \"${piv_pipelineName}\",\r\n  \"environmentName\"\
+            : \"${piv_environmentName}\"\r\n}\r\n"
+          pageLimit:
+          logLevel: "ERROR"
+        outputId: "snowflake-output-connector-v0"
+        snowflake-output-connector-v0:
+          warehouse: "[Environment Default]"
+          database: "${prv_metaDB}"
+          schema: "${prv_metaSchema}"
+          tableName: "${piv_execidtablename}"
+          createTableMode: "REPLACE_IF_EXISTS"
+          cleanStagedFiles: "Yes"
+          stagePlatform: "SNOWFLAKE"
+          stringNullIsNull: "Yes"
+          snowflake#internalStageType: "USER"
+      postProcessing:
+        updateScalarVariables:
+  variables:
+    prv_metaSchema:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata schema"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prv_metaDB:
+      metadata:
+        type: "TEXT"
+        description: "Name of metadata database"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_projectId:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_api_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "v1"
+    piv_execidtablename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_credentials_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_pipelineName:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_server:
+      metadata:
+        type: "TEXT"
+        description: "Server identity (eu1 or us1)"
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    piv_environmentName:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -550
+        "y": 0
+      tempMetlId: 1
+    Generate Stage Table Name:
+      position:
+        x: -280
+        "y": 0
+      tempMetlId: 3
+    Print Variables:
+      position:
+        x: -160
+        "y": 0
+      tempMetlId: 4
+    Run 1a - Append Pipeline Execution Id to Log Table:
+      position:
+        x: 280
+        "y": 0
+      tempMetlId: 5
+    Drop Stage Table:
+      position:
+        x: 550
+        "y": 0
+      tempMetlId: 6
+    Create PIPELINE_EXECUTION_LOG:
+      position:
+        x: -420
+        "y": 0
+      tempMetlId: 8
+    DPC API - Execute Published Pipeline:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 11
+  notes:
+    "1":
+      position:
+        x: -320
+        "y": -230
+      size:
+        height: 210
+        width: 220
+      theme: "white"
+      content: |-
+        #### Generate Stage Table Name
+        Queries a SQL script to generate a pseudo random table name and stores it in a scalar variable for use throughout the pipeline.
+    "2":
+      position:
+        x: -80
+        "y": -230
+      size:
+        height: 210
+        width: 240
+      theme: "white"
+      content: |-
+        #### DPC API - Execute Published Pipeline
+        Executes a published pipeline via the DPC API Source and writes the execution ID to a stage Snowflake table.
+    "3":
+      position:
+        x: 180
+        "y": -230
+      size:
+        height: 210
+        width: 260
+      theme: "white"
+      content: |-
+        #### Run 1a - Append Pipeline Execution Id to Log Table
+        Runs a transformation to append the execution ID of the published pipeline to the PIPELINE_EXECUTION_LOG table.
+    "4":
+      position:
+        x: 460
+        "y": -190
+      size:
+        height: 170
+        width: 260
+      theme: "white"
+      content: |-
+        #### Drop Stage Table
+        This component runs a SQL script to drop the stage table created earlier in the pipeline after the data load completes.
